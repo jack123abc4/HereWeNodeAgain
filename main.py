@@ -6,6 +6,7 @@ class Node:
     self.parent = parent
     self.children = []
     self.root = None
+    self.maxDepth = 0
     if self.parent != None:
       p = self.parent
       while p.parent != None:
@@ -39,13 +40,16 @@ class Node:
         nodeFound = searchVal
     return nodeFound
 
-  def expandSynonyms(self, node,level):
-    if level == 0:
-      return
+  def expandSynonyms(self, node, level):
+    print("{}\t{}".format(level,node.value))
+    if node.root != None and level > node.root.maxDepth:
+      node.root.maxDepth = level
+      print("Max depth: {}".format(level))
     numSynonyms = node.getSynonyms()
-    
+    if len(node.children) == 0:
+      return
     for n in node.children:
-      self.expandSynonyms(n,level-1)
+      self.expandSynonyms(n, level+1)
     
   def __str__(self):
     retStr = "--- {}\n".format(self.value.upper())
@@ -55,9 +59,7 @@ class Node:
       index += 1
     return retStr
 
-ROOT_WORD = "oven"
-TOTAL_DEPTH = 10
-
+ROOT_WORD = "homonym"
 
 def clearScreen():
   print("\033[H\033[J", end="")
@@ -65,7 +67,12 @@ def clearScreen():
 def printMenu(node,depth):
   clearScreen()
   width = len(node.children)
-  print("Root: {}\t\tCurrent depth: {}/{}\t\tCurrent width: {}\n\n".format(ROOT_WORD.upper(),depth,TOTAL_DEPTH,width))
+  maxDepth = 0
+  if node.root == None:
+    maxDepth = node.maxDepth
+  else:
+    maxDepth = node.root.maxDepth
+  print("Root: {}\t\tCurrent depth: {}/{}\t\tCurrent width: {}\n\n".format(ROOT_WORD.upper(),depth,maxDepth,width))
   print("{}\n\n".format(node))
   try:
     choice = int(input("Choice: ").strip())
@@ -76,11 +83,11 @@ def printMenu(node,depth):
         print("Already at top of tree.")
     elif choice >= width:
       print("Option exceeds width.")
-    elif depth==TOTAL_DEPTH:
+    elif depth==maxDepth:
       print("Already at bottom of tree.")
     else:
       printMenu(node.children[choice],depth+1)
-  except:
+  except ValueError:
     print("Error")
   input()
   printMenu(node,depth)
@@ -88,7 +95,7 @@ def printMenu(node,depth):
 
 print("Searching...") 
 root = Node(ROOT_WORD)
-root.expandSynonyms(root,TOTAL_DEPTH)
+root.expandSynonyms(root,0)
 printMenu(root,0)
 
 
