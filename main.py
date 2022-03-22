@@ -2,7 +2,7 @@ from pydictionary import Dictionary
 import time
 
 class Node:
-  def __init__(self, value, parent=None,id=0):
+  def __init__(self, value, parent=None):
     self.value = value
     self.parent = parent
     self.children = []
@@ -20,6 +20,13 @@ class Node:
     child = Node(value,parent=self)
     self.children.append(child)
     if self.root != None:
+      layer = 1
+      p = self.parent
+      while p.parent != None:
+        p = p.parent
+        layer += 1
+      if layer > self.root.maxDepth:
+        self.root.maxDepth = layer
       self.root.totalChildren += 1
       child.id = self.root.totalChildren
       if self.root.totalChildren % 10 == 0:
@@ -32,7 +39,12 @@ class Node:
     return child
   
   def getSynonyms(self):
+    sortedSynonyms = []
     for word in Dictionary(self.value,100).synonyms():
+      sortedSynonyms.append(word)
+    sortedSynonyms.sort()
+    
+    for word in sortedSynonyms:
       if " " in word:
         continue
       if self.root == None:
@@ -47,6 +59,7 @@ class Node:
     for c in self.children:
       for n in c.getAllNodes():
         nodeList.append(n)
+    nodeList.append(self)
     return nodeList
     
   def searchNode(self, node, value):
@@ -74,13 +87,42 @@ class Node:
     for n in node.children:
       self.expandSynonyms(n, level+1,limit)
 
+  def expandSynonymsInLayer(self, targetLayer):
+    root = self
+    if self.root != None:
+      root = self.root
+    if targetLayer > root.maxDepth:
+      root.maxDepth = targetLayer
+    
+    nodeList = self.getNodesInLayer(targetLayer)
+    for n in nodeList:
+      n.getSynonyms()
+    
+  
+  def getNodesInLayer(self, targetLayer,currentLayer=0):
+    if currentLayer == targetLayer:
+      return [self]
+    if len(self.children) == 0:
+      return [None]
+    root = self
+    if self.root != None:
+      root = self.root
+    nodeList = []
+    for c in self.children:
+      nextLayerList = c.getNodesInLayer(targetLayer,currentLayer+1)
+      if nextLayerList != None:
+        for n in c.getNodesInLayer(targetLayer,currentLayer=currentLayer+1):
+          if n != None:
+            nodeList.append(n)
+    return nodeList
+  
   def saveNodeToText(self):
     #id,value,children
     retStr = "id={},val={},children=".format(self.id,self.value)
     for c in self.children:
       retStr+= c.id
     return retStr
-    
+  
   def __str__(self):
     retStr = "--- {}\n".format(self.value.upper())
     index = 0
@@ -94,7 +136,7 @@ DEPTH_LIMIT = 3
 def clearScreen():
   print("\033[H\033[J", end="")
 
-def printMenu(node,depth):
+def printMenu(node,depth=0):
   clearScreen()
   width = len(node.children)
   maxDepth = 0
@@ -122,20 +164,59 @@ def printMenu(node,depth):
   input()
   printMenu(node,depth)
 
-startTime = time.time()
 
-print("Searching...") 
-root = Node(ROOT_WORD)
-root.expandSynonyms(root,0,DEPTH_LIMIT)
+def writeNodeList(nodeList):
+  outStr = ""
+  for n in nodeList:
+    id = n.id
+    value = n.value
+    parent = "None"
+    if n.parent != None:
+      parent= n.parent.value
+    outStr += "{},{},{}\n".format(id,value,parent)
+  return outStr
+
+def nodesFromFile(path):
+  file = open(path,"r")
+  lines = file.readlines()
+  strippedLines = []
+  for l in lines:
+    strippedLines.append(l.strip())
+  root = getNodeFromLine(strippedLines[0])
+  nodeList = [root]
+  for i in range(1,len(strippedLines)):
+    l = strippedLines[i]
+    nodeList.append(getNodeFromLine(l,root=root))
+  return nodeList
+  
+def getNodeFromLine(line,root=None):
+  id = line.split(",")[0]
+  value = line.split(",")[1]
+  parentValue = line.split(",")[2]
+  n = None
+  if root == None:
+    n = Node(value)
+    n.id = id
+  else:
+    parentNode = root.searchNode(root,parentValue)
+    n = parentNode.addChild(value)
+  return n
+
+startTime = time.time()
+nList = nodesFromFile("list.txt")
+  
+
+
+#print("Searching...") 
+#root = Node(ROOT_WORD)
+#for i in range(0,DEPTH_LIMIT):
+#  root.expandSynonymsInLayer(i)
 
 elapsedTime = time.time()-startTime
-nodeList = root.getAllNodes()
+#nodeList = root.getAllNodes()
+#sortedNodeList = sorted(nodeList, key=lambda x: x.id)
 
-for n in nodeList:
-  print(n.id,n.value)
-
-printMenu(root)
-# id, value, children
+printMenu(nList[0])
 
 
 
